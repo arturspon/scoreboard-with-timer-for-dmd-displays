@@ -30,10 +30,12 @@ int scoreTeamB = 0;
 
 // State machine to change print from scoreboard to stopwatch or vice-versa
 int timeToUpdateStopwatch = 1000;  // Do this every second or X milliseconds
-int timeUntilShowStopwatch = 30000;  // Do this every second or X milliseconds
-int timeUntilShowScoreboard = 6000;  // Do this every second or X milliseconds
+int timeUntilShowStopwatch = 30000;
+int timeUntilShowScoreboard = 6000;
 long int goTimeToUpdateStopwatch, goTimeUntilShowStopwatch, goTimeUntilShowScoreboard;
 int interrupted = 0;
+long intervalBetweenInterrupts = 500; // Push buttons will only count after 10 milliseconds after a push
+unsigned long lastInterrupt = 0;
 
 void setup() {
     goTimeToUpdateStopwatch = millis();
@@ -45,7 +47,7 @@ void setup() {
     attachInterrupt(digitalPinToInterrupt(btnA), btnAInterrupt, FALLING);
     attachInterrupt(digitalPinToInterrupt(btnB), btnBInterrupt, FALLING);
 
-    dmd.setBrightness(8);
+    dmd.setBrightness(255);
     dmd.selectFont(FONT);
     dmd.begin();
     dmd.fillScreen(true);
@@ -56,13 +58,19 @@ void setup() {
 
 void btnAInterrupt(){
     interrupted = 1;
-    scoreTeamA++;   
+    if((millis() - lastInterrupt) > intervalBetweenInterrupts) {
+        lastInterrupt = millis();
+        scoreTeamA++;
+    }
     printScoreToDMD();
 }
 
 void btnBInterrupt(){
     interrupted = 1;
-    scoreTeamB++;   
+    if((millis() - lastInterrupt) > intervalBetweenInterrupts) {
+        lastInterrupt = millis();
+        scoreTeamB++;
+    }
     printScoreToDMD();
 }
 
