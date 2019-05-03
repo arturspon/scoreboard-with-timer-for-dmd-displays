@@ -12,6 +12,14 @@
 #define DMD_PIN_B     7
 #define DMD_PIN_A     6
 
+const int ANALOG_PIN_BRIGHTNESS_BTN = A0;
+const int minAnalogBtnSensorValue = 0;
+const int maxAnalogBtnSensorValue = 1023;
+const int minBrightness = 1;
+const int maxBrightness = 255;
+int brightnessValue = 255;
+int lastBrightnessValueRead = 255;
+
 SoftDMD dmd(1,1, DMD_PIN_NOE, DMD_PIN_A, DMD_PIN_B, DMD_PIN_SCK, DMD_PIN_CLK, DMD_PIN_R);
 const uint8_t *FONT = Arial14;
 const int LED_PANEL_WIDTH = 32;
@@ -39,20 +47,20 @@ unsigned long lastInterrupt = 0;
 
 void setup() {
     goTimeToUpdateStopwatch = millis();
-    goTimeUntilShowStopwatch = millis();
-    goTimeUntilShowScoreboard = millis();    
+    goTimeUntilShowScoreboard = millis() + goTimeUntilShowScoreboard;
+    goTimeUntilShowStopwatch = millis() + timeUntilShowStopwatch;
 
     pinMode(btnA, INPUT_PULLUP);
     pinMode(btnB, INPUT_PULLUP);
     attachInterrupt(digitalPinToInterrupt(btnA), btnAInterrupt, FALLING);
     attachInterrupt(digitalPinToInterrupt(btnB), btnBInterrupt, FALLING);
 
-    dmd.setBrightness(255);
+    dmd.setBrightness(brightnessValue);
     dmd.selectFont(FONT);
     dmd.begin();
     dmd.fillScreen(true);
     
-    showStartupAnimation();
+    //showStartupAnimation();
     printScoreToDMD();
 }
 
@@ -83,8 +91,21 @@ void loop() {
     if(millis() >= goTimeUntilShowStopwatch) {
         printTimeToDMD();
     }
-    
-    //if(interrupted == 0) checkInput();
+
+    checkAndAjustBrightness();
+}
+
+void checkAndAjustBrightness() {
+    brightnessValue = analogRead(ANALOG_PIN_BRIGHTNESS_BTN);
+    brightnessValue = map(brightnessValue, minAnalogBtnSensorValue, maxAnalogBtnSensorValue, minBrightness, maxBrightness);
+
+    // in case the sensor value is outside the range seen during calibration
+    brightnessValue = constrain(brightnessValue, minBrightness, maxBrightness);
+
+    if(brightnessValue < (lastBrightnessValueRead - 16) || brightnessValue > (lastBrightnessValueRead + 16)) {
+        dmd.setBrightness(brightnessValue);
+        lastBrightnessValueRead = brightnessValue;
+    }
 }
 
 void checkInput() {
@@ -140,11 +161,6 @@ void printScoreToDMD() {
     dmd.drawLine(LED_PANEL_WIDTH / 2 - 1, 9, LED_PANEL_WIDTH / 2 + 1, 12, GRAPHICS_OFF);
     dmd.drawLine(LED_PANEL_WIDTH / 2 - 1, 12, LED_PANEL_WIDTH / 2 + 1, 9, GRAPHICS_OFF);
 
-    /*String scoreSeparatorCharacter = "x";
-    unsigned int scoreSeparatorWidth = dmd.stringWidth(scoreSeparatorCharacter);
-    int scoreSeparatorX = LED_PANEL_WIDTH / 2 - scoreSeparatorWidth / 2;
-    dmd.drawString(scoreSeparatorX, 2, scoreSeparatorCharacter, GRAPHICS_INVERSE);*/
-
     String scoreTeamAString = String(scoreTeamA);
     unsigned int scoreTeamAStringWidth = dmd.stringWidth(scoreTeamAString);
     dmd.drawString(scoreSeparatorX / 2 - scoreTeamAStringWidth / 2, 2, scoreTeamAString, GRAPHICS_INVERSE);
@@ -154,11 +170,6 @@ void printScoreToDMD() {
     int widthAvailableForScoreTeamB = PANEL_WIDTH - (scoreSeparatorX + 5);
     int scoreTeamBStringX = (scoreSeparatorX + 5) + (widthAvailableForScoreTeamB / 2 - scoreTeamBStringWidth / 2);
     dmd.drawString(scoreTeamBStringX, 2, scoreTeamBString, GRAPHICS_INVERSE);
-
-    /*String scoreString = String(scoreTeamA) + "x" + String(scoreTeamB);
-    unsigned int scoreStringWidth = dmd.stringWidth(scoreString);
-    int scoreStringX = LED_PANEL_WIDTH / 2 - scoreStringWidth / 2;
-    dmd.drawString(scoreStringX, 2, scoreString, GRAPHICS_INVERSE);*/
 
     goTimeUntilShowScoreboard = millis() + timeUntilShowScoreboard;
 }
